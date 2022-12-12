@@ -1,0 +1,103 @@
+Réunion Robocodico 
+
+Présents : Octave Julien; Emilie Cottereau; Nicolas Perreaux; Stéphane Lamassé 
+Objectif : s'entendre sur certains points de codicologie quantitative à regarder et donc à faire apprendre à la machine 
+Durée : 1 heure 
+
+
+1. Est-ce qu'il existe un "inventaire" de toutes les mesures utilisées en codicologie quantitatives ? Toutes les métriques 
+Est-ce que ce ne serait pas interessant de l'avoir pouir savoir quelle base de données on veut peupler ? 
+
+2. Stéphane: repérer des diagrammes, des tableaux, des opérations de calculs, 
+
+
+
+Le petit groupe des historiens et historiennes à essayé d'expliciter comment ils regardent les manuscrits (codex) : 
+
+
+<preambule> il est important de récupérer les metadonnées des catalogues 
+Les références "VC" renvoient au Vocabulaire codicologique de Denis Muzerelle (http://vocabulaire.irht.cnrs.fr/pages/vocab2.htm) et au numéro de la définition dans cet ouvrage. À voir pour les exemples illustrés.
+
+1.  Tout d'abord, l'échelle d'analyse pour nous est la page
+
+1.1 - Du texte qui renseigne sur la construction du témoin et du texte (et un peu sur la structure de la société qui est d'ailleurs)
+
+a) Mise en page
+> dimension des marges
+> repérage des colonnes 
+> nombre de colonnes
+> nombre de lignes et hauteur des lignes (="unité de réglure"
+> repérage des gloses 
+> réglure (peut être différent de l'espace occupé par le texte)
+> piqûres (VC 321.02)
+> espaces laissés blancs (entre deux textes par exemple)
+
+b) Signes indiquant la structure, la hiérarchie d'un ou de plusieurs textes
+> titre courant (titre répété en haut de chaque page, numéro de chapitre, VC 333.07)  -- Arsenal, 5059 18r 
+> Rubriques (VC 333.01)
+> initiales peintes (avec leurs dimensions en % de la page et en nombre de lignes pour la hauteur, VC 333.02 et 03)
+> Initiales réservées (espace laissé vierge pour faire une initiale, on y trouve souvent une lettre d'attente, tracée discrètement à la mine, pour indiquer à l'enlumineur quelle lettre doit être peinte ici, VC 333.04 et 333.06) 
+> colophon (VC 435.03)
+> pieds de mouches
+> Lettres réhaussés (une petite touche de couleur sur du noir, VC 561.07) 
+
+c) Décoration
+> Lettres ornées 
+> rinceaux/Bordure (VC 521.05, Arsenal 5059, fol. 3v ) 
+> décoration (TRoyes BM 1847; f. 221v) 
+> miniatures (décor peint figuratif) 
+
+d) Signes indiquant la structure matérielle du manuscrit
+> signatures de cahiers (VC 315.02)
+> reclames (VC 333.09)
+> numérotation des feuillets  (foliotation, VC 315.05)
+
+e) Autres
+> Nombre d'encres de couleurs distinctes (hors enluminures)
+
+
+
+1.2- l'écriture 
+> cursive ou pas cursive 
+> dater les niveaux de block écritys 
+
+
+1.3- Hors écriture strictement alphabétique 
+> schema 
+> enluminure 
+> manicule (VC 421.14)
+
+
+2. Distinction des différents types de textes selon leur forme
+
+- prose
+- vers
+- articles (texte sous forme d'une série de paragraphes relativement courts) 
+- listes (dont tables des matières, VC 433.07) 
+- calendrier (mise en page très caractéristique, par ex. https://gallica.bnf.fr/ark:/12148/btv1b9059328k/f7.item)
+- détecter si prose ou vers  (Bnfr 794 , f. 6r)   longueur des lignes (> semble plus apprentissages)
+- tableaux 
+- repérage de glose (VC 434.08 et 09) (compter les  niveaux de lignes = densité textuelles en fonction des quantités de lignes ) 
+ 
+
+
+
+
+
+B.  Proposer des problématiques d'études 
+
+
+Émilie Cottereau : La mise en page dans les manuscrits liturgiques 
+
+Octave Julien : Repérer les changements de mise en page à l'intérieur d'un manuscrit, pour repérer les cas où un manuscrit est composé de sous-parties d'origines différentes.
+
+Stéphane + Pierre : Evolution de la place des graphiques et nombres dans les marges des manuscrits en Occident. Savoir en fonction des disciplines et des témoins manuscrits quelle est la place des représentations et graphiques 
+
+
+
+
+Quelques projets en cours : 
+
+
+Projet horae https://heurist.huma-num.fr/heurist/?db=stutzmann_horae&website&id=378891&pageid=768544
+https://journal.digitalmedievalist.org/article/id/8073
