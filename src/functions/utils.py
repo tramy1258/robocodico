@@ -5,9 +5,12 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 #### Preprocessing ####
-def black_white(image,t=None):
+def black_white(image,t=None,otsu=False):
     if t is None:
-        return np.where(image > np.mean(image), 1, 0)
+        if otsu:
+            return cv2.threshold(image,0,255,cv2.THRESH_OTSU)[1]
+        else:
+            return np.where(image > np.mean(image), 1, 0)
     else:
         return np.where(image > t, 1, 0)
 
