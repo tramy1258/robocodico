@@ -10,10 +10,13 @@ def black_white(image,t=None,otsu=False):
         if otsu:
             return cv2.threshold(image,0,255,cv2.THRESH_OTSU)[1]
         else:
-            return np.where(image > np.mean(image), 1, 0)
+            return np.where(image > np.mean(image), 255, 0)
     else:
-        return np.where(image > t, 1, 0)
+        return np.where(image > t, 255, 0)
 
+def black_white_local(image,t=None,otsu=False):
+    return 
+    
 def subsample(image,rate=2):
     return image[::rate]
 
@@ -43,12 +46,15 @@ def show_mean_bi(image):
     plt.show()
 
 #### Evaluating ####
-def show_splits(image,splits,ax=None,color='red'):
+def show_splits(image,splits,ax=None,color='red',gray=False):
     """ Show image with splits given in input
     """
     if ax is None:
         plt.figure(figsize = (20,10))
-        plt.imshow(image)
+        if gray:
+            plt.imshow(image,cmap='gray')
+        else:
+            plt.imshow(image)
         plt.autoscale(False)
         for (axis,t) in splits:
             if axis == 'x':
@@ -57,7 +63,10 @@ def show_splits(image,splits,ax=None,color='red'):
                 plt.axhline(t,linewidth=1,color=color)   
         plt.show()  
     else:
-        ax.imshow(image)
+        if gray:
+            ax.imshow(image,cmap='gray')
+        else:
+            ax.imshow(image)
         ax.autoscale(False)
         for (axis,t) in splits:
             if axis == 'x':
@@ -66,10 +75,13 @@ def show_splits(image,splits,ax=None,color='red'):
                 ax.axhline(t,linewidth=1,color=color) 
         #plt.show()  
 
-def show_areas(image,areas,ax=None,color='red'):
+def show_areas(image,areas,ax=None,color='red',gray=False):
     if ax is None:
         plt.figure(figsize = (20,10))
-        plt.imshow(image)
+        if gray:
+            plt.imshow(image,cmap='gray')    
+        else:
+            plt.imshow(image)
         plt.autoscale(False)
         for x1,y1,x2,y2 in areas:
             rect = patches.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=1, edgecolor='red', fill=False)
@@ -77,7 +89,10 @@ def show_areas(image,areas,ax=None,color='red'):
         plt.show()
     else:
         ax.figure(figsize = (20,10))
-        ax.imshow(image)
+        if gray:
+            ax.imshow(image,cmap='gray')
+        else:
+            ax.imshow(image)
         ax.autoscale(False)
         for x1,y1,x2,y2 in areas:
             rect = patches.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=1, edgecolor='red', fill=False)

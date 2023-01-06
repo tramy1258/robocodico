@@ -5,7 +5,7 @@ import matplotlib.patches as patches
 from .utils import *
 from .cart import ponderated_criterion
 from sklearn.metrics import mean_squared_error
-from scipy.ndimage import rotate
+from functions.analyse import count_up_down
 
 def prepare_image(img,dir,cvd):
     '''
@@ -39,7 +39,7 @@ def prepare_image(img,dir,cvd):
 
     return image,tr
 
-def hough_vertical_lines(edges,angle=np.pi/9,threshold=200):
+def hough_vertical_lines(edges,angle=np.pi/9,threshold=200,nbmax=300):
     '''
     Parameters:
         - band : 2D array
@@ -51,21 +51,21 @@ def hough_vertical_lines(edges,angle=np.pi/9,threshold=200):
     # find all lines
     lines = cv2.HoughLines(edges,1,np.pi/180,threshold)
     if lines is None:
-        return None,None,None,None
+        return np.array([]),np.array([]),np.array([]),np.array([]),np.array([])
     lines = lines.squeeze(axis=1)
 
     # filter lines out of given vertical angle limits
     a = np.cos(lines[:,1])
     b = np.sin(lines[:,1])
     filter = b < np.sin(angle)
-    x0 = ((a*lines[:,0])[filter]).astype(int)
-    y0 = ((b*lines[:,0])[filter]).astype(int)
-    a = a[filter]
-    b = b[filter]
+    x0 = ((a*lines[:,0])[filter]).astype(int)[:nbmax]
+    y0 = ((b*lines[:,0])[filter]).astype(int)[:nbmax]
+    a = a[filter][:nbmax]
+    b = b[filter][:nbmax]
     # print([l if l<np.pi/2 else np.pi-l for l in lines[filter][:,1]])
-    # print(len(a), 'candidate lines amongst',len(lines),'lines found.')
+    print(len(a), 'candidate lines amongst',len(lines),'lines found.')
 
-    return a,b,x0,y0,lines[filter][:,1]
+    return a,b,x0,y0,lines[filter][:nbmax][:,1]
 
 def get_points(n,m,a,b,x0,y0,angle=None):
     '''
@@ -91,7 +91,7 @@ def get_points(n,m,a,b,x0,y0,angle=None):
         # print(b - np.sin(angle)) #  show error
         # print(f'This angle ({a},{b},sin={np.sin(angle)}) is not fitting for this direction, this should not happen.')
 
-    return x,y
+    return np.array(x),np.array(y)
 
 # def hough_line_point(theta,rho,x=None,y=None):
 #     '''
@@ -395,15 +395,23 @@ def get_band_limits(image,dir,c):
         return 
     return x1, y1, x2, y2
 
-def get_good_lines(band,bw,x1,ratio,a,b,x0,y0,theta,angle=None,d=None,e=None,f=None):
+def smooth_line(binary,x,y,window=5):
     '''
     '''
-    if (bw>1).any():
-        bw = normalize(bw).astype(int)
+    line = [binary[y[i],x[i]] for i in range(len(y))]
+    line = [1 if np.mean(line[i:i+window])>0.5 else 0 for i in range(0,len(line)-window)]
+    return line
+
+def get_good_lines(band,binary,x1,ratio,continuous_ratio,a,b,x0,y0,theta,d=None,e=None,f=None):
+    '''
+    '''
+    if (binary>1).any():
+        binary = normalize(binary).astype(int)
 
     all_rbw = np.array([])
-    all_x = np.array([])
-    all_y = np.array([]) 
+    all_cont = np.array([])
+    all_x = np.array([]).astype(int)
+    all_y = np.array([]).astype(int)
     all_risk = np.array([])
     all_angle = np.array([])
 
@@ -411,56 +419,74 @@ def get_good_lines(band,bw,x1,ratio,a,b,x0,y0,theta,angle=None,d=None,e=None,f=N
         for delta in [0,5,-5]:
 
             if 0 > x0[j] + delta or x0[j] + delta >= len(band[0]):
+            # if 0 > x0[j] or x0[j] >= len(band[0]):
                 continue
 
-            x,y = get_points(len(band),len(band[0]),a[j],b[j],x0[j]+delta,y0[j]) #,angle)
+            x,y = get_points(len(band),len(band[0]),a[j],b[j],x0[j]+delta,y0[j])
+            # x,y = get_points(len(band),len(band[0]),a[j],b[j],x0[j],y0[j])
 
             # filter lines not entirely in image
-            if len(y) == 0 or min(y) > 0 or max(y) < len(bw)-1:
+            if len(y) == 0 or min(y) > 0 or max(y) < len(binary)-1:
                 continue
-
+            
             if e is not None:
-                e.plot(x,y,color='tomato')
+                e.plot(x-delta,y,color='tomato')
 
             # compute ratio
             try:
-                rbw  = 1-(np.sum([bw[y[i],x[i]] for i in range(len(y))]))/len(y)
-                #rbwf = 1-(np.sum([bw[y[i],x[i]-5] for i in range(len(y))]))/len(y)
-                #rbwb = 1-(np.sum([bw[y[i],x[i]+5] for i in range(len(y))]))/len(y)
+                new_rbw = np.sum(smooth_line(binary,x,y))/len(y)
+                rbw = np.sum([binary[y[i],x[i]] for i in range(len(y))])/len(y)
+                cont_rbw_ = count_up_down([binary[y[i],x[i]] for i in range(len(y))])+[0]
+                cont_rbw__ = cont_rbw_[1::2] if binary[y[0],x[0]] == 0 else cont_rbw_[::2]
+                cont_rbw = np.max(np.array(cont_rbw__))/len(y)
                 
-            except Exception as e:
-                print('EXCEPTION:',e)
+            except Exception as err:
+                print('EXCEPTION:',err)
                 print(a[j],b[j],x0[j],y0[j])
                 print(len(x),len(y))
                 print(x,y)
                 if e is not None:
-                    print('printpowderblue')
-                    e.plot(x,y,color='powderblue')
+                    e.plot(x-delta,y,color='powderblue')
                     plt.show()
                 return
-            # print(rbw,rbwf,rbwb)
-            if rbw >= ratio:# or rbwf >= ratio or rbwb >= ratio:
+            # print('--'*50)
+            # print('ratio =',rbw,'smooth_ratio =',new_rbw, 'continuous_ratio =',cont_rbw, cont_rbw_,cont_rbw__)
+            if rbw >= ratio and cont_rbw >= continuous_ratio:
+                # print('--->',rbw,cont_rbw,delta)
                 all_rbw = np.append(all_rbw,rbw)
+                all_cont = np.append(all_cont,cont_rbw)
                 all_x = np.append(all_x,x1 + x[len(x)//2]-delta)
+                # all_x = np.append(all_x,x1 + x[len(x)//2])
                 all_y = np.append(all_y,y[len(y)//2])
-                all_risk = np.append(all_risk,ponderated_criterion(band,mean_squared_error,x[len(x)//2],'x'))
+                # all_risk = np.append(all_risk,ponderated_criterion(band,mean_squared_error,x[len(x)//2]-delta,'x'))
+                all_risk = np.append(all_risk,ponderated_criterion(band,mean_squared_error,x-delta))
                 all_angle = np.append(all_angle,theta[j])
                 if f is not None:
                     f.plot(x,y,color='teal')
-                continue
-    # all_angle = np.where(all_angle > np.pi/2, np.pi - all_angle, all_angle)
-    return all_rbw, all_x, all_y, all_risk, all_angle
+                break
+    return all_rbw, all_x, all_y, all_risk, all_angle, all_cont
 
 
-def get_split(img,dir,ratio=0.7,c=6,angle=np.pi/9,verbose=True,cvd=False):
+def get_split(img,dir,ratio=0.6,continuous_ratio=0.25,c=6,angle=np.pi/9,verbose=True,cvd=False,bnw=True,nbmax=300):
     '''
     '''
     image, tr = prepare_image(img,dir,cvd)
     x1, y1, x2, y2 = get_band_limits(image,dir,c)
 
     band = image[y1:y2,x1:x2]
-    bw = black_white(band) #,otsu=True)
-    edges = cv2.Canny(band,30,150,apertureSize = 3)    
+    # edges = cv2.Canny(band,50,180,apertureSize = 3)   
+    edges = cv2.Canny(band,30,150,apertureSize = 3)   
+    # print(type(edges),edges,np.max(edges),edges.shape)
+    bw = np.uint8(255-black_white(band))
+    # print(type(bw),bw,np.max(bw),bw.shape)
+    n = 2
+    kernel = np.ones((n,n))
+    if bnw:
+        # binary = cv2.dilate(bw,kernel,iterations = 1)
+        binary = bw
+    else:
+        binary = cv2.dilate(edges,kernel,iterations = 1)
+
     d = e = f = None
 
     if verbose:
@@ -469,13 +495,17 @@ def get_split(img,dir,ratio=0.7,c=6,angle=np.pi/9,verbose=True,cvd=False):
         ax.add_patch(patches.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=2, edgecolor='red', fill=False))
         d.imshow(band,cmap='gray')
         e.imshow(edges,cmap='gray')
-        f.imshow(bw,cmap='gray')
+        f.imshow(binary,cmap='gray')
         ax.autoscale(False)
-        plt.autoscale(False)
+        d.autoscale(False)
+        e.autoscale(False)
+        f.autoscale(False)
+        # plt.autoscale(False)
 
-    a, b, x0, y0, theta = hough_vertical_lines(edges,angle)
-    all_rbw, all_x, all_y, all_risk, all_angle = get_good_lines(band,bw,x1,ratio,a,b,x0,y0,theta,d=d,e=e,f=f)   
-
+    a, b, x0, y0, theta = hough_vertical_lines(edges,angle,nbmax=nbmax)
+    all_rbw, all_x, all_y, all_risk, all_angle, all_cont = get_good_lines(band,binary,x1,ratio,continuous_ratio,a,b,x0,y0,theta,d=d,e=e,f=f)   
+    print('rbw',all_rbw, 'risk', all_risk, 'cont', all_cont)
+    
     if len(all_rbw) < 1 and verbose:
         plt.show()
 
@@ -489,9 +519,10 @@ def get_split(img,dir,ratio=0.7,c=6,angle=np.pi/9,verbose=True,cvd=False):
                 return 0, (y2 - y1)/2, 0
             else:
                 return x2, (y2 - y1)/2, 0
+        # i = np.argmax(all_rbw)
         i = np.argmin(all_risk) # get index of least risky split (splitted zone are more homogeneous)
     
-    print(f'split at x={all_x[i]} and angle={round(all_angle[i],5)} with black-white ratio {round(all_rbw[i],5)}')
+    print(f'split at x={all_x[i]} and angle={round(all_angle[i],5)} with coverage of {round(all_rbw[i],5)} and risk of {round(all_risk[i],0)} and continuous ratio of {round(all_cont[i],5)}')
 
     if verbose:
         x_ = all_x[i]
@@ -503,17 +534,17 @@ def get_split(img,dir,ratio=0.7,c=6,angle=np.pi/9,verbose=True,cvd=False):
         d.axline((x_-x1,y_),slope=slope_,linestyle='dashed')
         d.scatter(x_-x1,y_,marker='x',color='red')
         plt.show()
-        
+
     return all_x[i], all_y[i], all_angle[i]
 
-def all_orientation(img,ratio=0.7,c=4,angle=np.pi/9,verbose=True,cvd=False):
+def all_orientation(img,ratio=0.6,continuous_ratio=0.25,c=4,angle=np.pi/9,verbose=True,cvd=False):
     '''
     '''
     x = np.array([])
     y = np.array([])
     a = np.array([])
     for dir in ['l','r','u','d']:
-        x_,y_,a_ = get_split(img,dir,ratio,c,angle,verbose,cvd)
+        x_,y_,a_ = get_split(img,dir,ratio,continuous_ratio,c,angle,verbose,cvd)
         x = np.append(x,x_) 
         y = np.append(y,y_)
         if dir in {'l', 'r'}:
@@ -529,7 +560,7 @@ def main_orientation(angle,atol=2e-2):
     '''
     sim = dict()
     for i in range(len(angle)):
-        print(sim)
+        # print(sim)
         # if angle[i] is None:
             # continue
         have_sim = False
@@ -554,11 +585,12 @@ def main_orientation(angle,atol=2e-2):
         
     return 0 # if no main orientation can be found, do not rectify at all
 
-def rotate_and_reframe(img,rad,x,y,verbose=True):
+def rectify(img,x,y,ang,verbose=True):
     '''
     '''
     height, width = img.shape[:2]
     center = (width/2,height/2)
+    rad = main_orientation(ang)
     rad = rad - np.pi if rad > np.pi/2 else rad
     rotate_matrix = cv2.getRotationMatrix2D(center=center, angle=-rad*180/np.pi, scale=1)
 
@@ -584,28 +616,45 @@ def rotate_and_reframe(img,rad,x,y,verbose=True):
     y_ = np.concatenate((y_1[:2],y_2[2:]))
         
     if verbose:
-        fig, (a,b) = plt.subplots(1,2,figsize=(20,10))
+        fig, (a,b) = plt.subplots(1,2,figsize=(15,10))
 
         a.imshow(img)
+        a.autoscale(False)
+        a_ = -ang - np.pi/2
+        s = -np.sin(a_)/np.cos(a_)
+        a.axline((x_[0],y_[0]),slope=-s[0],color='skyblue',linestyle='dashed')
+        a.axline((x_[1],y_[1]),slope=-s[1],color='skyblue',linestyle='dashed')
+        a.axline((x_[2],y_[2]),slope=1/s[2],color='skyblue',linestyle='dashed')
+        a.axline((x_[3],y_[3]),slope=1/s[3],color='skyblue',linestyle='dashed')
         a.scatter(x[:2],y[:2],marker='x',color='red')
         a.scatter(y[2:],x[2:],marker='x',color='red')
-        a.autoscale(False)
-
+        
         b.imshow(rotated_image)
+        b.autoscale(False)
         b.axvline(x_[0],color='tomato',linestyle='dashed')
         b.axvline(x_[1],color='tomato',linestyle='dashed')
         b.axhline(y_[2],color='tomato',linestyle='dashed')
         b.axhline(y_[3],color='tomato',linestyle='dashed')
         b.scatter(x_,y_,marker='x',color='red')
-        b.autoscale(False)
+
         plt.show()
 
-    return x_[0],x_[1],y_[2],y_[3]
-    
-def rectify(img):
-    '''
-    '''
+    return rotated_image[y_[2]:y_[3],x_[0]:x_[1]]
+
+def split(img):
     pass
+
+def reframe(img):
+    '''
+    '''
+    split,_,_ = get_split(img,'m')
+    imgs = [img] if split is None else [img[:,:split], img[:,split:]]
+    res = []
+    for im in imgs:
+        x,y,a = all_orientation(im)
+        res.append(rectify(im,x,y,a))
+    return res
+
 
 def highlight_fond_color(image,color='tomato'):
     hist,vals = np.histogram(image,bins=50)
