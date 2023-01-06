@@ -24,6 +24,7 @@ def count_text(l):
             curval = l[i]
             
     return res + [len(l)]
+
 def count_up_down(l):
     '''
     Count number of consecutive 0s or 1s in given list l, for example [0 1 0 0 0 1 1] gives [1 1 3 2]
@@ -105,7 +106,7 @@ def check_text1(areas,imgs,txtstd=5,verbose=True):
             new_img = imgs[i].copy()
 
         for x1,y1,x2,y2 in areas[i]:
-            print('\nAnalyzing area',x1,y1,x2,y2)
+            print('\nAnalyzing area',x1,',',y1,',',x2,',',y2)
             img = new_img[y1:y2,x1:x2]
             if verbose:
                 _,(ax1,ax2,ax3) = plt.subplots(1,3,figsize=(15,4),width_ratios=(3,6,6))
@@ -145,4 +146,65 @@ def check_text1(areas,imgs,txtstd=5,verbose=True):
             rect = patches.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=1, edgecolor='tomato', fill=False)
             ax2.add_patch(rect)
         plt.show()
+    
+def get_minima(l,v=-1):
+    if v==-1:
+        mins = [0] + [1 if l[i]<l[i-1] and l[i]<l[i+1] else 0 for i in range(1,len(l)-1)]
+    else:
+        mins = [0] + [1 if l[i]<l[i-1] and l[i]<l[i+1] and l[i]<v else 0 for i in range(1,len(l)-1)]
+    mins = [i for i in range(len(mins)) if mins[i]]
+    return mins
+
+def outer_module(img,ax=None):
+    if img.ndim > 2:
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    res = []
+    hmean = np.mean(img,1)
+    l = np.where(hmean > np.mean(img),1,0)
+    if l[0] == 0:
+        res.append(0)
+    for i in range(1,len(l)):
+        if l[i] != l[i-1]:
+            res.append(i)
+    if l[-1] == 0 and res[-1] != len(l):
+         res.append(len(l))
+    if ax is not None:
+        for t in res:
+            ax.axhline(t,color='teal')
+    return [[res[i],res[i+1]] for i in range(0,len(res),2)]
+
+def inner_module(img,out=None,ax=None):
+    if img.ndim > 2:
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    res = []
+    hmean = np.mean(img,1)
+    color = ['red','salmon','palegreen','cornflowerblue']
+    if out is None:
+        out = outer_module(img)
+    for t in out:
+        mins = [m+t[0] for m in get_minima(hmean[t[0]:t[1]])]
+        res.append(mins)
+        if ax is not None:
+            for t in mins:
+                ax.axhline(t,color=color[(len(mins)-1)%len(color)])
+    return res
+
+def analyze_text(img,x1,y1,x2,y2,gray=False):
+    if img.ndim > 2 and gray:
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    text_img = img[y1:y2,x1:x2]
+    _,(ax1,ax2) = plt.subplots(1,2,figsize=(22,15),width_ratios=(20,30))
+    ax1.imshow(text_img,cmap='gray')
+    ax2.plot(np.mean(text_img,1),color='cornflowerblue')
+    ax2.axhline(np.mean(text_img),color='tomato')
+    text = inner_module(text_img,ax=ax1)
+    size = [t[1]-t[0] for t in text if len(t)==2]
+    # print('text limits',text)
+    print('inner module size',size,'\n mean =', np.mean(size),'std =', np.std(size))
+    text = outer_module(text_img,ax=ax1)
+    size = [t[1]-t[0] for t in text if len(t)==2]
+    # print('text limits',text)
+    print('outer module size',size,'\n mean =', np.mean(size),'std =', np.std(size))
+    # print('inner_module',inner_module(text_img,ax=ax1))
+    plt.show()
 

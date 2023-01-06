@@ -4,30 +4,28 @@ import numpy as np
 import cv2
 from functions.utils import show_splits
 
-def ponderated_criterion(image,criterion,split,axis):
-    """ - axis can only be 'x' or 'y' 
+def ponderated_criterion(image,criterion,split,axis='x'):
+    """ 
         - normalized gray image only 
-        Return ponderated sum of a certain criterion on splitted image  
+        Return ponderated sum of a certain criterion on vertically splitted image  
     """
-
-    if axis == 'x':
+    if axis == 'y':
+        image = image.T
+    if type(split) == int:
         left  = image[:,:split]
         right = image[:,split:]
-        if left.size == 0 or right.size == 0: # impossible position
-            print('extreme')
-            return image.size # if m == 1 else 0
-        pond  = criterion(left,np.ones_like(left)+np.mean(left)-1) * left.size + criterion(right,np.ones_like(right)+np.mean(right)-1) * right.size
-        #pond /= image.size
     else:
-        left  = image[:split]
-        right = image[split:]
-        if left.size == 0 or right.size == 0: # impossible position
-            print('extreme')
-            return image.size # if m == 1 else 0
-        pond = criterion(left,np.ones_like(left)+np.mean(left)-1) * left.size + criterion(right,np.ones_like(right)+np.mean(right)-1) * right.size
-        #pond /= image.size
+        left = [image[y][:split[y]] for y in range(len(image))]
+        left = np.array([item for sublist in left for item in sublist])
+        right = [image[y][split[y]:] for y in range(len(image))]
+        right = np.array([item for sublist in right for item in sublist])
+    if left.size == 0 or right.size == 0: # impossible position
+        # print('extreme')
+        return image.size**2 # if m == 1 else 0
+    pond = criterion(left,np.ones_like(left)+np.mean(left)-1) * left.size + criterion(right,np.ones_like(right)+np.mean(right)-1) * right.size
+    #pond /= image.size
     return pond
-    
+
 def best_split_general(image,criterion,ax3,x_start=0,y_start=0,rate=1,uni_axis=None,no_split=None):
     """ - normalized gray image only 
         - m=1 for minimizing and -1 for maximizing
