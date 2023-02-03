@@ -1,11 +1,13 @@
 import numpy as np
 import cv2
+import os
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from .utils import *
 from .cart import ponderated_criterion
 from sklearn.metrics import mean_squared_error
 from functions.analyse import count_up_down
+from skimage.filters import threshold_otsu, threshold_niblack, threshold_sauvola
 
 def prepare_image(img,dir,cvd):
     '''
@@ -39,7 +41,7 @@ def prepare_image(img,dir,cvd):
 
     return image,tr
 
-def hough_vertical_lines(edges,angle=np.pi/9,threshold=200,nbmax=300):
+def hough_vertical_lines(edges,angle=np.pi/9,nbmax=150):
     '''
     Parameters:
         - band : 2D array
@@ -49,7 +51,7 @@ def hough_vertical_lines(edges,angle=np.pi/9,threshold=200,nbmax=300):
         Normal vector and reference point for each vertical and almost vertical line found using Hough Transform.
     '''
     # find all lines
-    lines = cv2.HoughLines(edges,1,np.pi/180,threshold)
+    lines = cv2.HoughLines(edges,1,np.pi/180,int(len(edges)/7))
     if lines is None:
         return np.array([]),np.array([]),np.array([]),np.array([]),np.array([])
     lines = lines.squeeze(axis=1)
@@ -92,289 +94,6 @@ def get_points(n,m,a,b,x0,y0,angle=None):
         # print(f'This angle ({a},{b},sin={np.sin(angle)}) is not fitting for this direction, this should not happen.')
 
     return np.array(x),np.array(y)
-
-# def hough_line_point(theta,rho,x=None,y=None):
-#     '''
-    
-#     '''
-#     if x is not None and y is not None:
-#         return None
-#     if y is not None:
-#         return (-np.sin(theta)/np.cos(theta)*y + rho/np.cos(theta))
-#     if x is not None:
-#         return (-np.cos(theta)/np.sin(theta)*x + rho/np.sin(theta))
-
-# def filter_borders(img,lines,c=5,ax=None):
-#     '''
-#     Returns:
-#         Filter all lines crossing middle of image
-#     '''
-#     print(lines.shape)
-#     upper_y = img.shape[0] // c
-#     lower_y = img.shape[0] // c * (c-1)
-#     upper_x = img.shape[1] // c
-#     lower_x = img.shape[1] // c * (c-1)
-#     upper_xs = hough_line_point(lines[:,1],lines[:,0],y=np.array([upper_y]*len(lines)))
-#     lower_xs = hough_line_point(lines[:,1],lines[:,0],y=np.array([lower_y]*len(lines)))
-#     upper = np.logical_and(upper_xs > upper_x, upper_xs < lower_x)
-#     lower = np.logical_and(lower_xs > upper_x, lower_xs < lower_x)
-#     if ax is not None:
-#         rect = patches.Rectangle((upper_x,upper_y),lower_x-upper_x,lower_y-upper_y,color='red')
-#         ax.add_patch(rect)
-#         ax.scatter(upper_xs, np.array([upper_y]*len(lines)),marker='x',color='powderblue')
-#         ax.scatter(lower_xs, np.array([lower_y]*len(lines)),marker='x',color='plum')
-
-#     return np.logical_or(upper, lower)
-
-# def split(img,ratio=0.8,c=7,angle = np.pi/9,cvd=False,verbose=True):
-#     '''
-#     Parameters:
-
-#     Returns:
-#         Split if given image of 2 pages, else return original image.
-#     '''
-
-#     image,tr = prepare_image(img,'m',cvd)
-
-#     if verbose:
-#         fig, (ax,d,e,f) = plt.subplots(1,4,figsize=(16,5),width_ratios=[5,2,2,2])
-#         ax.imshow(image,cmap='gray')
-
-#     x1 = int((len(image[0])//c)*np.ceil(c/2-1)) 
-#     y1 = 0
-#     x2 = int(len(image[0])-(len(image[0])//c)*np.ceil(c/2-1))
-#     y2 = len(image)
-
-#     band = image[y1:y2,x1:x2]
-#     bw = black_white(band,np.mean(band))
-#     edges = cv2.Canny(band,30,150,apertureSize = 3)
-
-#     if verbose:
-#         ax.add_patch(patches.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=2, edgecolor='red', fill=False))
-#         d.imshow(band,cmap='gray')
-#         e.imshow(edges,cmap='gray')
-#         f.imshow(bw,cmap='gray')
-#         plt.autoscale(False)
-    
-#     a,b,x0,y0,l = hough_vertical_lines(band,angle)
-
-#     # compute ratio of each line found to get one splitting position
-#     split = -1
-#     rmax = 0.0
-#     xmax = []
-#     ymax = []
-#     for j in range(len(a)):
-        
-#         x,y = get_points(band,a[j],b[j],x0[j],y0[j],angle)
-
-#         # filter lines not wholly in image
-#         if len(y) == 0 or min(y) > 0 or max(y) < len(band)-1:
-#             continue
-
-#         # compute ratio
-#         try:
-#             r = 1-(np.sum([bw[y[i],x[i]] for i in range(len(y))]))/len(y)
-#         except Exception as e:
-#             print('EXCEPTION:',e)
-#             print(a[j],b[j],x0[j],y0[j])
-#             print(x,y)
-#             if verbose:
-#                 f.plot(x,y,color='powderblue')
-#                 plt.show()
-#             return
-
-#         if verbose:
-#             d.plot(x,y,color='tomato')
-#         #rs.append(r)
-#         if rmax < r:
-#             rmax = r
-#             xmax = x
-#             ymax = y
-
-#         # compute splitting position
-#         if r >= ratio:
-#             split = x1 + x[len(x)//2]
-#             print('r =',r, 'with split at',split)
-#             if verbose:
-#                 f.axvline(x[len(x)//2],color='red',linestyle='dashed')
-#                 f.plot(x,y,color='tomato')
-#                 plt.show()
-#             break
-
-#     print('rmax =',rmax,'r_=',(np.sum([edges[ymax[i],xmax[i]] for i in range(len(ymax))]))/len(ymax))
-#     if verbose:
-#         f.plot(xmax,ymax,color='darkcyan')
-#         plt.show()
-
-#     if split != -1:
-#         if not tr:
-#             img1 = img[:,:split]
-#             img2 = img[:,split:]
-#         else:
-#             img1 = img[:split]
-#             img2 = img[split:]
-#         res = [img1,img2]
-#         if verbose:
-#             fig, (ax1, ax2) = plt.subplots(1,2,figsize=(10,4))
-#             ax1.imshow(img1,cmap='gray')
-#             ax2.imshow(img2,cmap='gray')
-#             plt.show()
-#     else:
-#         res = [img]
-#         if verbose:
-#             plt.imshow(img,cmap='gray')
-#             plt.show()
-
-#     return res
-
-# def trim(img,dir,ratio=0.7,c=6,angle=np.pi/9,cvd=False,verbose=True):
-#     ''' 
-#     Parameters:
-#         - img: 2D array
-#         - ratio: float
-#         - c: int
-#         - cvd: boolean
-#         - verbose: boolean
-#         - dir: char
-    
-#     Returns:
-#         Trim image in given direction left (l), right (r), up (u), down (d).
-#         Returns 2 images and cropping position if cropping is reasonable, one image and -1 otherwise.
-#     '''
-
-#     print(f'---------{dir}----------')
-#     image,tr = prepare_image(img,dir,cvd)
-
-#     if verbose:
-#         fig, (ax,d,e,f) = plt.subplots(1,4,figsize=(16,5),width_ratios=[5,2,2,2])
-#         ax.imshow(image,cmap='gray')
-#         ax.autoscale(False)
-
-#     x1 = 0
-#     y1 = 0
-#     x2 = len(image[0])
-#     y2 = len(image)
-#     if dir == 'l' or dir == 'u': # left vertival line
-#         x2 = len(image[0])//c
-#     elif dir == 'r' or dir == 'd': # right vertical line
-#         x1 = (len(image[0])//c)*(c-1)
-#     else:
-#         print('No such direction exists.')
-#         return
-
-#     # showing region to consider cutting
-#     band = image[y1:y2,x1:x2]
-#     bw = black_white(band,np.mean(band))
-#     edges = cv2.Canny(band,30,150,apertureSize = 3)
-#     if verbose:
-#         ax.add_patch(patches.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=2, edgecolor='red', fill=False))
-#         d.imshow(band,cmap='gray')
-#         d.autoscale(False)
-#         f.imshow(bw,cmap='gray')
-
-#     if verbose:
-#         a,b,x0,y0,_ = hough_vertical_lines(band,angle,e)
-#     else:
-#         a,b,x0,y0,_ = hough_vertical_lines(band,angle)
-#     split = -1
-#     if a is not None:
-#         # compute ratio of each line found to see if a rupture exists
-#         rmax = 0.0
-#         xmax = []
-#         ymax = []
-#         rbest = 0.0
-#         xbest = []
-#         ybest = []
-#         riskbest = -1
-#         bbest = -1
-#         #rs = []
-
-#         for j in range(len(a)):
-
-#             x,y = get_points(band,a[j],b[j],x0[j],y0[j],angle)
-
-#             # only consider lines wholly in image
-#             if len(y) == 0 or min(y) > 0 or max(y) < len(band)-1:
-#                 continue
-
-#             # compute ratio
-#             try:
-#                 r = 1-(np.sum([bw[y[i],x[i]] for i in range(len(y))]))/len(y)
-#             except Exception as e:
-#                 print('EXCEPTION:',e)
-#                 print(a[j],b[j],x0[j],y0[j])
-#                 print(x,y)
-#                 if verbose:
-#                     f.plot(x,y,color='powderblue')
-#                     plt.show()
-#                 return
-                
-#             if verbose:
-#                 d.plot(x,y,color='tomato')
-#                 #f.plot(x,y,color='tomato')
-
-#             if rmax < r:
-#                 rmax = r
-#                 xmax = x
-#                 ymax = y
-#                 bbest = b[j]
-
-#             # compute splitting position
-#             if r >= ratio:
-#                 risk = ponderated_criterion(band,mean_squared_error,x[len(x)//2],'x')
-#                 #print('r =',r, 'with split at',x1 + x[len(x)//2],'with risk =',risk)
-#                 if riskbest == -1 or risk < riskbest:
-#                     riskbest = risk
-#                     rbest = r
-#                     xbest = x
-#                     ybest = y
-#                     split = x1 + x[len(x)//2]
-#                 if verbose:
-#                     f.axvline(x[len(x)//2],color='darkcyan',linestyle='dashed')
-#                 #print('r =',r, 'with split at',x1 + x[len(x)//2],'with risk =',risk)
-        
-#         print('rmax =',rmax,'r_=',(np.sum([edges[ymax[i],xmax[i]] for i in range(len(ymax))]))/len(ymax))
-#         print('r =',rbest, 'with split at',split,'with risk =',riskbest,'and sin(theta)=',bbest)
-#         if verbose:
-#             if len(xbest) > 0:
-#                 f.plot(xbest,ybest,color='tomato')
-#                 f.axvline(xbest[len(xbest)//2],color='red',linestyle='dashed')
-    
-#     if verbose:    
-#         plt.show()
-#     if split == -1:
-#         if dir == 'l' or dir == 'u':
-#             return 0
-#         elif dir == 'r':
-#             return len(img[0])
-#         elif dir == 'd':
-#             return len(img)
-
-#     return split
-
-# def reframe(image,split_only=False,verbose=True):
-#     '''
-#     '''
-#     imgs = split(image,verbose=verbose,ratio=0.75)
-#     if not split_only:
-#         for i in range(len(imgs)):
-#             c = []
-#             for d in ['l','r','u','d']:
-#                 pos = trim(imgs[i],d,verbose=verbose)
-#                 print(pos)
-#                 c.append(pos)
-#             if len(imgs[i]) > len(imgs[i][0]):
-#                 imgs[i] = imgs[i][c[2]:c[3],c[0]:c[1]]
-#             else:
-#                 imgs[i] = imgs[i][c[0]:c[1],c[2]:c[3]]
-#             print(c)
-#     fig, (ax1,ax2,ax3) = plt.subplots(1,3,figsize=(14,7))
-#     ax1.imshow(image,cmap='gray')
-#     ax = [ax2,ax3]
-#     for i in range(len(imgs)):
-#         ax[i].imshow(imgs[i],cmap='gray')
-#     plt.show()
-#     return imgs
 
 def get_band_limits(image,dir,c):
     '''
@@ -450,42 +169,51 @@ def get_good_lines(band,binary,x1,ratio,continuous_ratio,a,b,x0,y0,theta,d=None,
                     plt.show()
                 return
             # print('--'*50)
+            # print('ratio =',rbw,'cont ratio =',cont_rbw,cont_rbw_)
             # print('ratio =',rbw,'smooth_ratio =',new_rbw, 'continuous_ratio =',cont_rbw, cont_rbw_,cont_rbw__)
-            if rbw >= ratio and cont_rbw >= continuous_ratio:
-                # print('--->',rbw,cont_rbw,delta)
-                all_rbw = np.append(all_rbw,rbw)
-                all_cont = np.append(all_cont,cont_rbw)
-                all_x = np.append(all_x,x1 + x[len(x)//2]-delta)
-                # all_x = np.append(all_x,x1 + x[len(x)//2])
-                all_y = np.append(all_y,y[len(y)//2])
-                # all_risk = np.append(all_risk,ponderated_criterion(band,mean_squared_error,x[len(x)//2]-delta,'x'))
-                all_risk = np.append(all_risk,ponderated_criterion(band,mean_squared_error,x-delta))
-                all_angle = np.append(all_angle,theta[j])
+            if rbw >= ratio:
                 if f is not None:
-                    f.plot(x,y,color='teal')
-                break
+                    f.plot(x-delta,y,color='tomato')
+                if cont_rbw >= continuous_ratio:
+                    # print('--->',rbw,cont_rbw,delta)
+                    all_rbw = np.append(all_rbw,rbw)
+                    all_cont = np.append(all_cont,cont_rbw)
+                    all_x = np.append(all_x,x1 + x[len(x)//2]-delta)
+                    # all_x = np.append(all_x,x1 + x[len(x)//2])
+                    all_y = np.append(all_y,y[len(y)//2])
+                    # all_risk = np.append(all_risk,ponderated_criterion(band,mean_squared_error,x[len(x)//2]-delta,'x'))
+                    all_risk = np.append(all_risk,ponderated_criterion(band,mean_squared_error,x-delta))
+                    all_angle = np.append(all_angle,theta[j])
+                    if f is not None:
+                        f.plot(x-delta,y,color='teal')
+                        # print('---->',x1 + x[len(x)//2]-delta,y[len(y)//2],theta[j],rbw,cont_rbw)
+                    break
     return all_rbw, all_x, all_y, all_risk, all_angle, all_cont
 
 
-def get_split(img,dir,ratio=0.6,continuous_ratio=0.25,c=6,angle=np.pi/9,verbose=True,cvd=False,bnw=True,nbmax=300):
+def get_split(img,dir,ratio=0.6,continuous_ratio=0.25,c=6,angle=np.pi/9,verbose=True,cvd=False,bnw=True,nbmax=100):
     '''
     '''
     image, tr = prepare_image(img,dir,cvd)
     x1, y1, x2, y2 = get_band_limits(image,dir,c)
 
     band = image[y1:y2,x1:x2]
-    # edges = cv2.Canny(band,50,180,apertureSize = 3)   
     edges = cv2.Canny(band,30,150,apertureSize = 3)   
-    # print(type(edges),edges,np.max(edges),edges.shape)
-    bw = np.uint8(255-black_white(band))
-    # print(type(bw),bw,np.max(bw),bw.shape)
+    # edges = band < threshold_sauvola(band,25)
+    # edges = cv2.Canny(band,30,150,apertureSize = 3)
     n = 2
     kernel = np.ones((n,n))
-    if bnw:
-        # binary = cv2.dilate(bw,kernel,iterations = 1)
-        binary = bw
+    if dir == 'm':
+        binary = 255-black_white(band)
     else:
-        binary = cv2.dilate(edges,kernel,iterations = 1)
+        # binary = 255-black_white(band)
+        if image.size > 1e7:
+            binary = band < threshold_niblack(band,121,k=-0.2)
+            binary = cv2.blur(np.uint8(binary),(7,7))
+        else:
+            binary = band < threshold_niblack(band,81,k=0.2)
+        
+    
 
     d = e = f = None
 
@@ -504,7 +232,8 @@ def get_split(img,dir,ratio=0.6,continuous_ratio=0.25,c=6,angle=np.pi/9,verbose=
 
     a, b, x0, y0, theta = hough_vertical_lines(edges,angle,nbmax=nbmax)
     all_rbw, all_x, all_y, all_risk, all_angle, all_cont = get_good_lines(band,binary,x1,ratio,continuous_ratio,a,b,x0,y0,theta,d=d,e=e,f=f)   
-    print('rbw',all_rbw, 'risk', all_risk, 'cont', all_cont)
+    if verbose:
+        print('rbw',all_rbw, 'risk', all_risk, 'cont', all_cont)
     
     if len(all_rbw) < 1 and verbose:
         plt.show()
@@ -644,17 +373,66 @@ def rectify(img,x,y,ang,verbose=True):
 def split(img):
     pass
 
-def reframe(img):
+def reframe(img,rep=2,save_path=None):
     '''
     '''
-    split,_,_ = get_split(img,'m')
-    imgs = [img] if split is None else [img[:,:split], img[:,split:]]
-    res = []
-    for im in imgs:
-        x,y,a = all_orientation(im)
-        res.append(rectify(im,x,y,a))
-    return res
+    x,y,a = get_split(img,'m',c=9,continuous_ratio=0.45,ratio=0.3)
+    if x is not None:
+        ends = (int((len(img)-y)*np.tan(a) + x),int(-y*np.tan(a) + x))
+        imgs = [img[:,:max(ends)], img[:,min(ends):]]
+    else:
+        imgs = [img]
+    
 
+    for i in range(len(imgs)):
+        plt.imshow(imgs[i])
+        plt.yticks([])
+        plt.xticks([])
+        plt.show()
+
+    for i in range(len(imgs)):
+        for r in range(rep):
+            x,y,a = all_orientation(imgs[i],continuous_ratio=0.4)
+            imgs[i] = rectify(imgs[i],x,y,a)
+
+    if save_path is not None:
+        j = len(save_path)-save_path[::-1].index('.')-1
+        k = len(save_path)-save_path[::-1].index('/')
+        if not os.path.exists(save_path[:k]+'reframed/'):
+            os.makedirs(save_path[:k]+'reframed/')
+        for i in range(len(imgs)):
+            print(imgs[i].shape)
+            ind_sp = ''.join((save_path[:k],'reframed/',save_path[k:j],'_'+str(i),'.png'))
+            plt.imsave(ind_sp,imgs[i])
+
+    return imgs
+
+def reframe_(img,rep=2,save_path=None):
+    '''
+    '''
+    x,y,a = get_split(img,'m',c=9,continuous_ratio=0.45,ratio=0.3)
+    if x is not None:
+        ends = (int((len(img)-y)*np.tan(a) + x),int(-y*np.tan(a) + x))
+        imgs = [img[:,:max(ends)], img[:,min(ends):]]
+    else:
+        imgs = [img]
+    
+    for i in range(len(imgs)):
+        for r in range(rep):
+            x,y,a = all_orientation(imgs[i],continuous_ratio=0.45)
+            imgs[i] = rectify(imgs[i],x,y,a)
+
+    if save_path is not None:
+        j = len(save_path)-save_path[::-1].index('.')-1
+        k = len(save_path)-save_path[::-1].index('/')
+        if not os.path.exists(save_path[:k]+'reframed/'):
+            os.makedirs(save_path[:k]+'reframed/')
+        for i in range(len(imgs)):
+            print(imgs[i].shape)
+            ind_sp = ''.join((save_path[:k],'reframed/',save_path[k:j],'_'+str(i),'.png'))
+            plt.imsave(ind_sp,imgs[i])
+
+    return imgs
 
 def highlight_fond_color(image,color='tomato'):
     hist,vals = np.histogram(image,bins=50)
