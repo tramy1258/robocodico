@@ -7,6 +7,7 @@ from skimage.filters import threshold_otsu, threshold_niblack, threshold_sauvola
 from math import floor
 from functions.utils import show_linked_areas
 
+colors = ['orchid','tomato','olive','cadetblue','cornflowerblue','goldenrod','darkseagreen','crimson','lightpink']
 # def count_text(l):
     # '''
     # Count number of consecutive 0s or 1s in given list l, for example [0 1 0 0 0 1 1] gives [1 1 3 2]
@@ -127,7 +128,7 @@ def check_text(areas,imgs,text_std=6,verbose=True):
         
         print('This page contains',len(linked_texts),'columns of text.')
         for j,a in linked_texts.items():
-            print('- column',j,'contains',a[1],'lines of text')
+            print('- column',j,'in',colors[j],'contains',a[1],'lines of text')
 
     print(all_text_areas)
     return all_text_areas
@@ -163,7 +164,7 @@ def inner_module(img,out=None,ax=None):
         img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     res = []
     hmean = np.mean(img,1)
-    color = ['red','salmon','palegreen','cornflowerblue']
+    # color = ['red','salmon','palegreen','cornflowerblue']
     if out is None:
         out = outer_module(img)
     for t in out:
@@ -182,8 +183,10 @@ def analyze_text(image,x1,y1,x2,y2,text_std):
     else: 
         text_img = image[y1:y2,x1:x2]
     
-    _,(ax1,ax2) = plt.subplots(1,2,figsize=(15,15),width_ratios=(7,8))
+    _,(ax1,ax2,ax3) = plt.subplots(1,3,figsize=(23,15),width_ratios=(7,8,8))
     # ax3.imshow(image[y1:y2,x1:x2])
+    ax3.plot(np.mean(text_img,0),color='darkseagreen')
+    ax3.axhline(np.mean(text_img),color='goldenrod')
     ax2.plot(np.mean(text_img,1),color='cornflowerblue')
     ax2.axhline(np.mean(text_img),color='lightsalmon')
     # text_img = text_img > threshold_sauvola(text_img,25)
@@ -371,10 +374,23 @@ def delete_text_binary(img,text_areas,over=30,delta=6,verbose=False):
         plt.show()
     return image
 
-def get_white_pixels_coords(binary):
-    return np.array([[x,y] for x in range(len(binary[0])) \
-                           for y in range(len(binary)) \
-                    if binary[y,x]])
+def get_neighbors(binary, pixel, eps):
+    i, j = pixel
+    neighborhood = np.array([[x,y] for x in range(max(i-eps,0),min(i+eps,len(binary[0]))) 
+                                   for y in range(max(j-eps,0),min(j+eps,len(binary)))
+                                   if binary[y,x]
+                            ])
+    return neighborhood
+
+def get_white_pixels_coords(binary, eps):
+    #todo: graph (adjacent lists)
+    list_white_pixels = np.array([[x,y] for x in range(len(binary[0])) 
+                                        for y in range(len(binary)) 
+                                        if binary[y,x]
+                                ])
+    graph_white_pixels = {px: get_neighbors(binary, px, eps) for px in list_white_pixels}
+    state_white_pixels = {px: -1 for px in list_white_pixels}
+    return state_white_pixels, graph_white_pixels
         
 # def get_connected_components_knn(binary):
 #     white_pixels = get_white_pixels_coords(binary)
@@ -455,7 +471,7 @@ def get_connected_components_dbscan(binary, eps=10, minpts=15, colored=None):
     for i in range(len(values)):
         if values[i] == 0:
             continue
-        print('- cluster',values[i],'has',counts[i],'elements.')
+        print('- cluster',values[i],'covers',counts[i],'pixel.')
         indices = np.array([white_pixels[j] for j in range(white_pixels.shape[0]) if connected[j] == values[i]])
         x = np.min(indices[:,0])
         x_ = np.max(indices[:,0])
@@ -469,3 +485,57 @@ def get_connected_components_dbscan(binary, eps=10, minpts=15, colored=None):
             ax_.add_patch(rect)
     plt.show()
     return res
+
+
+def highlight_fond_color(image,color='tomato',i=None):
+    '''
+    Parameters:
+        - image: 2D array
+    '''
+    hist,vals = np.histogram(image,bins=50)
+    plt.hist(image.flatten(),bins=50)
+    plt.show()
+    print('hist =',hist,np.sum(hist),len(hist))
+    print('vals =',vals,len(vals))
+    if i is None:
+        i = np.argmax(hist)
+    print(vals[i],vals[i+1])
+    xy = [(x,y) for y in range(len(image)) for x in range(len(image[0])) if (image[y,x]>=vals[i] and image[y,x]<vals[i+1])]
+    xy = np.array(xy)
+    plt.figure(figsize=(20,10))
+    plt.imshow(image,cmap='gray')
+    plt.scatter(xy[:,0],xy[:,1],color=color,marker='.',s=1)
+    plt.show()
+
+def otsu_multiple_gaussians(image, n=2, bins=50):
+    hist, vals = np.histogram(image,bins=bins)
+    limit = -1
+
+    for i in range(n):
+        print('-'*50)
+        print(limit)
+        print(len(hist),len(vals))
+        hist = hist[:limit+1] if limit != -1 else hist[:]
+        vals = vals[:limit+2] if limit != -1 else vals[:]
+        
+        bin_mids = (vals[:-1] + vals[1:]) / 2.
+        print(len(hist),len(bin_mids),len(vals))
+        weight1 = np.cumsum(hist)
+        weight2 = np.cumsum(hist[::-1])[::-1]
+
+        mean1 = np.cumsum(hist * bin_mids) / weight1
+        mean2 = (np.cumsum((hist * bin_mids)[::-1]) / weight2[::-1])[::-1]
+        
+        inter_class_variance = weight1[:-1] * weight2[1:] * (mean1[:-1] - mean2[1:]) ** 2
+        index_of_max_val = np.argmax(inter_class_variance)
+        threshold = bin_mids[:-1][index_of_max_val]
+
+        limit = index_of_max_val
+        ax = plt.subplot(111)
+        ax.bar(vals[:-1],hist,width=5,color='skyblue')
+        ax_ = ax.twinx()
+        ax_.plot(vals[1:-1],inter_class_variance,color='tomato')
+        ax_.axvline(threshold,linestyle='dashed',color='tomato')
+        plt.show()
+    # plt.show()
+
