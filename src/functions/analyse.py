@@ -2,7 +2,7 @@ import cv2
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
-from scipy.stats import median_abs_deviation
+# from scipy.stats import median_abs_deviation
 from skimage.filters import threshold_otsu, threshold_niblack, threshold_sauvola
 from math import floor
 from functions.utils import show_linked_areas
@@ -90,7 +90,7 @@ def count_up_down(l):
 # def check_partial_text():
 #     pass
 
-def check_text(areas,imgs,text_std=6,verbose=True):
+def check_text(areas,imgs,text_std=6,verbose=False):
     '''
     '''
     all_text_areas = []
@@ -98,20 +98,13 @@ def check_text(areas,imgs,text_std=6,verbose=True):
         print('IMAGE',i)
         text_areas = []
 
-        # if len(imgs[i].shape) == 3:
-        #     new_img = cv2.cvtColor(imgs[i], cv2.COLOR_RGB2GRAY)
-        # else:
-        #     new_img = imgs[i].copy()
-
         for a in areas[i]:
-            print('Analyzing area',a)
-            nblines = analyze_text(imgs[i],*a,text_std)
-
+            print('\nAnalyzing area',a)
+            nblines = analyze_text(imgs[i],*a,text_std,verbose=verbose)
             if nblines != -1:
                 text_areas.append((*a,nblines))
             else:
                 print('---> not text')
-
             # new_img[y1:y2,x1:x2] = np.mean(img)
 
         all_text_areas.append(text_areas)
@@ -177,43 +170,54 @@ def inner_module(img,out=None,ax=None):
                 # ax.axhline(t,color=color[(len(mins)-1)%len(color)])
     return res
 
-def analyze_text(image,x1,y1,x2,y2,text_std):
+def analyze_text(image,x1,y1,x2,y2,text_std,verbose=False):
     if image.ndim > 2:
         text_img = cv2.cvtColor(image[y1:y2,x1:x2], cv2.COLOR_RGB2GRAY)
     else: 
         text_img = image[y1:y2,x1:x2]
     
-    _,(ax1,ax2,ax3) = plt.subplots(1,3,figsize=(23,15),width_ratios=(7,8,8))
-    # ax3.imshow(image[y1:y2,x1:x2])
-    ax3.plot(np.mean(text_img,0),color='darkseagreen')
-    ax3.axhline(np.mean(text_img),color='goldenrod')
-    ax2.plot(np.mean(text_img,1),color='cornflowerblue')
-    ax2.axhline(np.mean(text_img),color='lightsalmon')
-    # text_img = text_img > threshold_sauvola(text_img,25)
-    # ax4.imshow(text_img,cmap='gray')
-    ax1.imshow(image[y1:y2,x1:x2])
-    # ax2.plot(np.mean(text_img,1)*255,color='blue')
-    # ax2.axhline(np.mean(text_img)*255,color='red')
-    ax1.autoscale(False)
-    
-    text = outer_module(text_img,ax=ax1)
-    text_ = inner_module(text_img,ax=ax1,out=text)
-    # print(text)
-    # print(text_)
+    if verbose:    
+        _,(ax1,ax2,ax3) = plt.subplots(1,3,figsize=(23,15),width_ratios=(7,8,8))
+        # ax3.imshow(image[y1:y2,x1:x2])
+        ax3.plot(np.mean(text_img,0),color='darkseagreen')
+        ax3.axhline(np.mean(text_img),color='goldenrod')
+        ax2.plot(np.mean(text_img,1),color='cornflowerblue')
+        ax2.axhline(np.mean(text_img),color='lightsalmon')
+        # text_img = text_img > threshold_sauvola(text_img,25)
+        # ax4.imshow(text_img,cmap='gray')
+        ax1.imshow(image[y1:y2,x1:x2])
+        # ax2.plot(np.mean(text_img,1)*255,color='blue')
+        # ax2.axhline(np.mean(text_img)*255,color='red')
+        ax1.autoscale(False)
+        
+        text = outer_module(text_img,ax=ax1)
+        # text_ = inner_module(text_img,ax=ax1,out=text)
+        # print(text)
+        # print(text_)
 
-    plt.show()
+        plt.show()
+    else:
+        text = outer_module(text_img)
+        # text_ = inner_module(text_img,out=text)
 
     outer_text_size = [t[1]-t[0] for t in text if len(t)==2]
-    inner_text_size = [t[1]-t[0] for t in text_ if len(t)==2]
+    # inner_text_size = [t[1]-t[0] for t in text_ if len(t)==2]
     blank_size = [text[i+1][0]-text[i][1] for i in range(len(text)-1)]
     # blank_size = [b for b in blank_size if b < 2*np.median(outer_text_size)]
 
-    # or len(inner_text_size) == 0 or np.std(inner_text_size) > text_std 
+    if len(outer_text_size) == 0 or len(blank_size) == 0:
+        return -1
+    
+    text_median = np.median(outer_text_size)
+    real_text_std = np.std(outer_text_size)
+    # blank_median = np.median(blank_size)
+    real_blank_std = np.std(blank_size)
+
+    coverage = np.sum([t for t in outer_text_size if np.abs(t-text_median) < 2*text_std])/len(text_img)
+
     print(len(outer_text_size), len(blank_size), np.std(outer_text_size), np.std(blank_size))
-    if len(outer_text_size) == 0 or len(blank_size) == 0\
-        or np.std(outer_text_size) > text_std or np.std(blank_size) > text_std\
-        or any([b > 2*np.median(outer_text_size) for b in blank_size]):
-        return -1 
+    if coverage < 0.4 or real_text_std > text_std or real_blank_std > text_std:
+        return -1
 
     inked = np.median(outer_text_size) #+0.5
     blank = np.median(blank_size)
@@ -227,21 +231,15 @@ def analyze_text(image,x1,y1,x2,y2,text_std):
     
     return nblines
 
-# def same_length_neighbor(a,b):
-#     x1,y1,x2,y2 = a[:4]
-#     for a_ in b:
-#         x3,y3,x4,y4 = a_[:4]
-#         if ((x1==x4 or x2==x3) and y1 == y3 and y2 == y4):
-#             return True
-#     return False
-
 def left_right_neighbor(a,b):
     x1,y1,x2,y2 = a[:4]
     for a_ in b:
         x3,y3,x4,y4,nb = a_
         if x1==x4 or x2==x3:
             if (min(y1,y2)-max(y3,y4)) * (min(y3,y4)-max(y1,y2)) > 0:
-                return nb
+                print('left_right')
+                # return nb
+                return 1
     return 0
 
 def up_down_neighbor(a,b):
@@ -250,26 +248,30 @@ def up_down_neighbor(a,b):
         x3,y3,x4,y4,nb = a_
         if y1==y4 or y2==y3:
             if (min(x1,x2)-max(x3,x4)) * (min(x3,x4)-max(x1,x2)) > 0:
+                print('up_down')
                 return 1
     return 0
 
 def link(areas):
+    print('\n')
     linked = dict()
     for i in range(len(areas)):
-        print(areas[i])
+        print('Getting neighbor of',areas[i])
         have_neighbor = False
         for c,b in linked.items():
-            print('-'*50)
             nb = left_right_neighbor(areas[i],b[0])
             if nb:
-                print('a',nb)
+                # print('a',nb)
                 have_neighbor = True
                 b[0].append(areas[i])
-                linked[c] = (b[0],max(nb,areas[i][4]))
+                print(areas[i])
+                print(nb, areas[i][4])
+                # linked[c] = (b[0],max(nb,areas[i][4]))
+                linked[c] = (b[0],max(b[1],areas[i][4]))
                 continue
             nb = up_down_neighbor(areas[i],b[0])
             if nb:
-                print('b',nb)
+                # print('b',nb)
                 have_neighbor = True
                 b[0].append(areas[i])
                 linked[c] = (b[0],b[1]+areas[i][4])
@@ -374,21 +376,24 @@ def delete_text_binary(img,text_areas,over=30,delta=6,verbose=False):
         plt.show()
     return image
 
-def get_neighbors(binary, pixel, eps):
+def get_neighbors(binary, pixel, eps_x, eps_y):
+    '''
+    '''
     i, j = pixel
-    neighborhood = np.array([[x,y] for x in range(max(i-eps,0),min(i+eps,len(binary[0]))) 
-                                   for y in range(max(j-eps,0),min(j+eps,len(binary)))
-                                   if binary[y,x]
-                            ])
+    neighborhood = {(x,y) for x in range(max(i-eps_x,0),min(i+eps_x,len(binary[0]))) 
+                          for y in range(max(j-eps_y,0),min(j+eps_y,len(binary)))
+                          if binary[y,x]
+                    }
     return neighborhood
 
-def get_white_pixels_coords(binary, eps):
-    #todo: graph (adjacent lists)
-    list_white_pixels = np.array([[x,y] for x in range(len(binary[0])) 
-                                        for y in range(len(binary)) 
-                                        if binary[y,x]
-                                ])
-    graph_white_pixels = {px: get_neighbors(binary, px, eps) for px in list_white_pixels}
+def get_white_pixels_coords(binary, eps_x, eps_y):
+    '''
+    '''
+    list_white_pixels = [(x,y) for x in range(len(binary[0])) 
+                                for y in range(len(binary)) 
+                                if binary[y,x]
+                        ]
+    graph_white_pixels = {px: get_neighbors(binary, px, eps_x, eps_y) for px in list_white_pixels}
     state_white_pixels = {px: -1 for px in list_white_pixels}
     return state_white_pixels, graph_white_pixels
         
@@ -427,58 +432,70 @@ def get_white_pixels_coords(binary, eps):
 #         print('- cluster',values[i],'has',counts[i],'elements.')
 #     return connected
 
-def get_connected_components_dbscan(binary, eps=10, minpts=15, colored=None):
-    white_pixels = get_white_pixels_coords(binary)
-    connected = [-1]*white_pixels.shape[0]
+def get_connected_components_dbscan(binary, eps_x=20, eps_y=2, minpts=30, subsample=True, colored=None, verbose=True):
+    '''
+    '''
+    binary_ = binary
+    scale = 1
+    if subsample:
+        while len(binary_) > 2000:
+            binary_ = binary_[::2,::2]
+            scale*=2
+    print('scale=',scale)
+    state, graph = get_white_pixels_coords(binary_, eps_x, eps_y)
+    print('contains',len(state),'white pixels')
     res = []
     cpt = 0
-    for i in range(white_pixels.shape[0]):
-        if connected[i] != -1:
+    for px in graph:
+        if state[px] != -1:
             continue
-        dist = np.sqrt(np.sum((white_pixels-white_pixels[i])**2,axis=1))
-        neighbors = {j for j in range(white_pixels.shape[0]) if dist[j] > 0 and dist[j] < eps}
+        neighbors = graph[px]
         if len(neighbors) < minpts:
-            connected[i] = 0
+            state[px] = 0
             continue
         cpt += 1
-        connected[i] = cpt
-        nb_neighbors = len(neighbors)
+        state[px] = cpt
 
         while len(neighbors) > 0:
-            j = neighbors.pop()
-            if connected[j] == 0:
-                connected[j] = cpt
+            q = neighbors.pop()
+            if state[q] == 0:
+                state[q] = cpt
 
-            if connected[j] != -1:
+            if state[q] != -1:
                 continue
                 
-            connected[j] = cpt
+            state[q] = cpt
+            neighbors_of_neighbor = graph[q]
 
-            dist = np.sqrt(np.sum((white_pixels-white_pixels[j])**2,axis=1))
-            neighbors_of_neighbor = {k for k in range(white_pixels.shape[0]) if dist[k] > 0 and dist[k] < eps}
-            
             if len(neighbors_of_neighbor) >= minpts:
                 neighbors |= neighbors_of_neighbor
+    rf = (50,50)
     if colored is not None:
         fig, (ax,ax_) = plt.subplots(1,2,figsize=(20,15))
         ax_.imshow(colored)
+        ax_.scatter(rf[0],rf[1],marker='x',color='olive')
+        rect = patches.Rectangle((rf[0]-eps_x*scale,rf[1]-eps_y*scale),eps_x*scale*2,eps_y*scale*2,linewidth=1,edgecolor='tomato',fill=False)
+        ax_.add_patch(rect)
     else:
         fig, ax = plt.subplots(1,1,figsize=(10,15))
-    ax.imshow(binary,cmap='gray')
-    ax.scatter(white_pixels[:,0],white_pixels[:,1],c=np.array(connected),cmap='Paired',s=1)
+    ax.imshow(binary_,cmap='gray')
+    ax.scatter(rf[0],rf[1],marker='x',color='olive')
+    rect = patches.Rectangle((rf[0]-eps_x,rf[1]-eps_y),eps_x*2,eps_y*2,linewidth=1,edgecolor='tomato',fill=False)
+    ax.add_patch(rect)
+    ax.scatter([g[0] for g in graph],[g[1] for g in graph],c=np.array(list(state.values())),cmap='Paired',s=1)
     print(cpt,'clusters found with DBSCAN algorithm')
-    values, counts = np.unique(connected,return_counts=True)
+    values, counts = np.unique(list(state.values()), return_counts=True)
     for i in range(len(values)):
         if values[i] == 0:
             continue
         print('- cluster',values[i],'covers',counts[i],'pixel.')
-        indices = np.array([white_pixels[j] for j in range(white_pixels.shape[0]) if connected[j] == values[i]])
-        x = np.min(indices[:,0])
-        x_ = np.max(indices[:,0])
-        y = np.min(indices[:,1])
-        y_ = np.max(indices[:,1])
+        indices = np.array([px for px in graph if state[px] == values[i]])
+        x = np.min(indices[:,0])*scale
+        x_ = np.max(indices[:,0])*scale
+        y = np.min(indices[:,1])*scale
+        y_ = np.max(indices[:,1])*scale
         res.append((x,y,x_,y_))
-        rect = patches.Rectangle((x, y), x_-x, y_-y, linewidth=1, edgecolor='tomato', fill=False)
+        rect = patches.Rectangle((x/scale, y/scale), (x_-x)/scale, (y_-y)/scale, linewidth=1, edgecolor='tomato', fill=False)
         ax.add_patch(rect)
         if colored is not None:
             rect = patches.Rectangle((x, y), x_-x, y_-y, linewidth=1, edgecolor='tomato', fill=False)

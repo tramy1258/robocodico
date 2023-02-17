@@ -3,19 +3,23 @@ import cv2
 #import scipy.signal as sig
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from skimage.filters import threshold_otsu, threshold_niblack, threshold_sauvola
 
 colors = ['orchid','tomato','olive','cadetblue','cornflowerblue','goldenrod','darkseagreen','crimson','lightpink']
 
 #### Preprocessing ####
-def black_white(image,t=None,otsu=False):
+def black_white(image,t=None,threshold='',**kwargs):
     if t is None:
-        if otsu:
-            t,_ = cv2.threshold(image,0,255,cv2.THRESH_OTSU)
-            return np.where(image > t+30, 255, 0)
+        if threshold == 'otsu':
+            return image < threshold_otsu(image, **kwargs)
+        elif threshold == 'sauvola':
+            return image < threshold_sauvola(image, **kwargs)
+        elif threshold == 'niblack':
+            return image < threshold_niblack(image, **kwargs)
         else:
-            return np.where(image > np.mean(image), 255, 0)
+            return image < np.mean(image)
     else:
-        return np.where(image > t+20, 255, 0)
+        return image < t
 
 # def phansalkar(image,n=5,p=3,q=10,k=0.25,R=0.5):
 #     dx, dy = image.shape

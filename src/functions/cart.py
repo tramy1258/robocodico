@@ -282,7 +282,7 @@ def remerge(areas,insert_index,merge_index):
         areas[i] = (min(x1,x1_),min(y1,y1_),max(x2,x2_),max(y2,y2_))
     return areas
 
-def cart_regression_bi_simul(img,criterion,max_depth=20,eps_=8,rate=1,start=10,verbose=False):
+def cart_regression_bi_simul(img,criterion,max_depth=20,rate=1,start=10,verbose=False):
     ''' 
     Parameters:
 
@@ -435,13 +435,17 @@ def cart_regression_bi_simul(img,criterion,max_depth=20,eps_=8,rate=1,start=10,v
     cut_index = np.argmin(crit)
     final_areas = remerge(final_areas,[s[0] for s in chrono_splits],cut_index-1)
 
-    # if verbose:
-    fig, (axf1,axf2) = plt.subplots(2,1,figsize=(10,27), height_ratios = ((2,7)))
-    axf1.scatter(np.arange(len(chrono_splits)),[s[1] for s in chrono_splits],marker='x')
-    axf1.scatter(np.arange(len(chrono_splits)),crit,marker='x',color='tomato')
-    axf1.plot([slope*i+intercept for i in range(len(chrono_splits))])
-    axf1.axvline(cut_index,linestyle='dashed',color='tomato')
-    show_areas(img,final_areas,ax=axf2)
-    plt.show()
+    if verbose:
+        fig, (axf1,axf2) = plt.subplots(2,1,figsize=(10,27), height_ratios = ((2,7)))
+        axf1.scatter(np.arange(len(chrono_splits)),[s[1] for s in chrono_splits],marker='x')
+        axf1.scatter(np.arange(len(chrono_splits)),crit,marker='x',color='tomato')
+        axf1.plot([slope*i+intercept for i in range(len(chrono_splits))])
+        axf1.axvline(cut_index,linestyle='dashed',color='tomato')
+        show_areas(img,final_areas,ax=axf2)
+        plt.show()
+    else:
+        # fig, axf2 = plt.subplots(1,1,figsize=(5,7))
+        show_areas(img,final_areas)
+        plt.show()
 
     return final_areas

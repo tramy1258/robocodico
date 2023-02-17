@@ -202,18 +202,19 @@ def get_split(img,dir,ratio=0.6,continuous_ratio=0.25,c=6,angle=np.pi/9,verbose=
     # edges = band < threshold_sauvola(band,25)
     # edges = cv2.Canny(band,30,150,apertureSize = 3)
     n = 2
-    kernel = np.ones((n,n))
+    # kernel = np.ones((n,n))
     if dir == 'm':
-        binary = 255-black_white(band)
+        # binary = 255-black_white(band)
+        binary = black_white(band)
     else:
         # binary = 255-black_white(band)
         if image.size > 1e7:
-            binary = band < threshold_niblack(band,121,k=-0.2)
+            # binary = band < threshold_niblack(band,121,k=-0.2)
+            binary = black_white(band,threshold='niblack',window_size=121,k=-0.2)
             binary = cv2.blur(np.uint8(binary),(7,7))
         else:
-            binary = band < threshold_niblack(band,81,k=0.2)
-        
-    
+            # binary = band < threshold_niblack(band,81,k=-0.2)
+            binary = black_white(band,threshold='niblack',window_size=81,k=-0.2)
 
     d = e = f = None
 
@@ -373,27 +374,27 @@ def rectify(img,x,y,ang,verbose=True):
 def split(img):
     pass
 
-def reframe(img,rep=2,save_path=None):
+def reframe(img,rep=2,save_path=None, verbose=False):
     '''
     '''
-    x,y,a = get_split(img,'m',c=9,continuous_ratio=0.45,ratio=0.3)
+    x,y,a = get_split(img,'m',c=9,continuous_ratio=0.45,ratio=0.3, verbose=verbose)
     if x is not None:
         ends = (int((len(img)-y)*np.tan(a) + x),int(-y*np.tan(a) + x))
         imgs = [img[:,:max(ends)], img[:,min(ends):]]
     else:
         imgs = [img]
     
-
-    for i in range(len(imgs)):
-        plt.imshow(imgs[i])
-        plt.yticks([])
-        plt.xticks([])
-        plt.show()
+    if verbose:
+        for i in range(len(imgs)):
+            plt.imshow(imgs[i])
+            plt.yticks([])
+            plt.xticks([])
+            plt.show()
 
     for i in range(len(imgs)):
         for r in range(rep):
-            x,y,a = all_orientation(imgs[i],continuous_ratio=0.4)
-            imgs[i] = rectify(imgs[i],x,y,a)
+            x,y,a = all_orientation(imgs[i],continuous_ratio=0.4,verbose=verbose)
+            imgs[i] = rectify(imgs[i],x,y,a,verbose)
 
     if save_path is not None:
         j = len(save_path)-save_path[::-1].index('.')-1
@@ -433,16 +434,3 @@ def reframe_(img,rep=2,save_path=None):
             plt.imsave(ind_sp,imgs[i])
 
     return imgs
-
-def highlight_fond_color(image,color='tomato'):
-    hist,vals = np.histogram(image,bins=50)
-    print('hist =',hist,np.sum(hist),len(hist))
-    print('vals =',vals,len(vals))
-    i = np.argmax(hist)
-    print(vals[i],vals[i+1])
-    xy = [(x,y) for y in range(len(image)) for x in range(len(image[0])) if (image[y,x]>=vals[i] and image[y,x]<vals[i+1])]
-    xy = np.array(xy)
-    plt.figure(figsize=(20,10))
-    plt.imshow(image,cmap='gray')
-    plt.scatter(xy[:,0],xy[:,1],color=color,marker='.',s=1)
-    plt.show()
