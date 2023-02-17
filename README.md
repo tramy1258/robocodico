@@ -3,7 +3,7 @@
 Dictionnary for codicology terms
 http://vocabulaire.irht.cnrs.fr/pages/vocab2.htm
 
-# USAGE
+# Usage
 git clone 'url'
 
 cd robocodico
