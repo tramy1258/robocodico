@@ -94,7 +94,7 @@ def check_text(areas,imgs,text_std=6,verbose=False):
     '''
     '''
     all_text_areas = []
-    for i in range(len(areas)):
+    for i in range(len(imgs)):
         print('IMAGE',i)
         text_areas = []
 
@@ -119,11 +119,17 @@ def check_text(areas,imgs,text_std=6,verbose=False):
         show_linked_areas(imgs[i],linked_texts,ax=ax1)
         plt.show()
         
+        print('#'*50)
         print('This page contains',len(linked_texts),'columns of text.')
         for j,a in linked_texts.items():
             print('- column',j,'in',colors[j],'contains',a[1],'lines of text')
+            text_height_percentage = (max([coord[3] for coord in a[0]])-min([coord[1] for coord in a[0]]))/imgs[i].shape[0]
+            text_width_percentage = (max([coord[2] for coord in a[0]])-min([coord[0] for coord in a[0]]))/imgs[i].shape[1]
+            print('  text covers',round(text_height_percentage,3),'of page height')
+            print('  text covers',round(text_width_percentage, 3),'of page width')
 
-    print(all_text_areas)
+        print('#'*50)
+    print('text areas',all_text_areas)
     return all_text_areas
     
 def get_minima(l):#,v=-1):
