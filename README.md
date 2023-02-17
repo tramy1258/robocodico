@@ -2,3 +2,6 @@
 
 Dictionnary for codicology terms
 http://vocabulaire.irht.cnrs.fr/pages/vocab2.htm
+
+git clone 'url'
+cd robocodico
