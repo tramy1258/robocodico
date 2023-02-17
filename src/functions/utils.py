@@ -3,19 +3,27 @@ import cv2
 #import scipy.signal as sig
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from skimage.filters import threshold_otsu, threshold_niblack, threshold_sauvola
+
+colors = ['orchid','tomato','olive','cadetblue','cornflowerblue','goldenrod','darkseagreen','crimson','lightpink']
 
 #### Preprocessing ####
-def black_white(image,t=None,otsu=False):
+def black_white(image,t=None,threshold='',**kwargs):
     if t is None:
-        if otsu:
-            return cv2.threshold(image,0,255,cv2.THRESH_OTSU)[1]
+        if threshold == 'otsu':
+            return image < threshold_otsu(image, **kwargs)
+        elif threshold == 'sauvola':
+            return image < threshold_sauvola(image, **kwargs)
+        elif threshold == 'niblack':
+            return image < threshold_niblack(image, **kwargs)
         else:
-            return np.where(image > np.mean(image), 255, 0)
+            return image < np.mean(image)
     else:
-        return np.where(image > t, 255, 0)
+        return image < t
 
-def black_white_local(image,t=None,otsu=False):
-    return 
+# def phansalkar(image,n=5,p=3,q=10,k=0.25,R=0.5):
+#     dx, dy = image.shape
+
     
 def subsample(image,rate=2):
     return image[::rate]
@@ -88,7 +96,6 @@ def show_areas(image,areas,ax=None,color='red',gray=False):
             plt.gca().add_patch(rect)
         plt.show()
     else:
-        ax.figure(figsize = (20,10))
         if gray:
             ax.imshow(image,cmap='gray')
         else:
@@ -97,7 +104,32 @@ def show_areas(image,areas,ax=None,color='red',gray=False):
         for x1,y1,x2,y2 in areas:
             rect = patches.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=1, edgecolor='red', fill=False)
             ax.add_patch(rect)
-        ax.show()
+
+def show_linked_areas(image,linked_areas,ax=None,gray=False):
+    if ax is None:
+        plt.figure(figsize = (20,10))
+        if gray:
+            plt.imshow(image,cmap='gray')    
+        else:
+            plt.imshow(image)
+        plt.autoscale(False)
+        for i,a in linked_areas.items():
+            for s in a[0]:
+                x1,y1,x2,y2 = s[:4]
+                rect = patches.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=1, edgecolor=colors[i], fill=False)
+                plt.gca().add_patch(rect)
+        plt.show()
+    else:
+        if gray:
+            ax.imshow(image,cmap='gray')
+        else:
+            ax.imshow(image)
+        ax.autoscale(False)
+        for i,a in linked_areas.items():
+            for s in a[0]:
+                x1,y1,x2,y2 = s[:4]
+                rect = patches.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=1, edgecolor=colors[i], fill=False)
+                ax.add_patch(rect)
 
 def splits_to_areas(splits):
     x = [int(s[1]) for s in splits if s[0] == 'x']
@@ -113,4 +145,3 @@ def splits_to_areas(splits):
 
 def eval_splits(image,splits):
     pass
-
