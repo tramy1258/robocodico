@@ -8,25 +8,11 @@ from math import floor
 from functions.utils import show_linked_areas
 
 colors = ['orchid','tomato','olive','cadetblue','cornflowerblue','goldenrod','darkseagreen','crimson','lightpink']
-# def count_text(l):
-    # '''
-    # Count number of consecutive 0s or 1s in given list l, for example [0 1 0 0 0 1 1] gives [1 1 3 2]
-    # gives [0 2 7] [1 1 0 0 1 1 1] [2 7]
-    # '''
-    # res = []
-    # curval = -1
-    # for i in range(len(l)):
-    #     if l[i] != curval:
-    #         if l[i] == 0:
-    #             res.append(i)
-    #         curval = l[i]
-            
-    # return res + [len(l)]
 
 def count_up_down(l):
     '''
     Count number of consecutive 0s or 1s in given list l, for example [0 1 0 0 0 1 1] gives [1 1 3 2]
-    gives [0 2 7] [1 1 0 0 1 1 1] [2 7]
+    [1 1 0 0 1 1 1] gives [2 7]
     '''
     res = []
     curval = -1
@@ -38,59 +24,7 @@ def count_up_down(l):
             curval = i
     return res
 
-# def check_text1(areas,imgs,txtstd=5,verbose=True):
-#     '''
-#     '''
-#     for i in range(len(areas)):
-#         print('IMAGE',i)
-#         text_areas = []
-
-#         if len(imgs[i].shape) == 3:
-#             new_img = cv2.cvtColor(imgs[i], cv2.COLOR_RGB2GRAY)
-#         else:
-#             new_img = imgs[i].copy()
-
-#         for x1,y1,x2,y2 in areas[i]:
-#             print('\nAnalyzing area',x1,y1,x2,y2)
-#             img = new_img[y1:y2,x1:x2]
-#             if verbose:
-#                 _,(ax1,ax2,ax3) = plt.subplots(1,3,figsize=(15,4),width_ratios=(3,6,6))
-#                 ax1.imshow(img,cmap='gray')
-#                 ax2.plot(np.mean(img,1))
-#                 ax2.axhline(np.mean(img),color='tomato')
-#                 ax3.plot(np.mean(img,0))
-#                 plt.show()
-#             # compute periods
-#             ud = np.where(np.mean(img,1) > np.mean(img),1,0)
-#             periods = count_up_down(ud)
-#             print(periods[::2],periods[1::2])
-#             std_text = np.std(periods[::2]) if ud[0] == 0 else np.std(periods[1::2])
-#             std_blank = np.std(periods[1::2]) if ud[0] == 0 else np.std(periods[::2])
-#             print(std_text,std_blank)
-
-#             # check if periodic
-#             if std_blank < txtstd and std_text < txtstd and len(periods) > 3:
-#                 nb_lines = len(periods[::2]) if ud[0] == 0 else len(periods[1::2])
-#                 print(f'----->>> Contains {nb_lines} lines of text')
-#                 text_areas.append((x1,y1,x2,y2))
-#             else:
-#                 print('---> not text')
-#             new_img[y1:y2,x1:x2] = np.mean(img)
-
-#         _,(ax1,ax2) = plt.subplots(1,2,figsize=(9,4))
-#         ax1.imshow(new_img,cmap='gray')
-#         ax2.imshow(imgs[i])
-#         for x1,y1,x2,y2 in text_areas:
-#             rect = patches.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=1, edgecolor='tomato', fill=False)
-#             ax1.add_patch(rect)
-#             rect = patches.Rectangle((x1, y1), x2-x1, y2-y1, linewidth=1, edgecolor='tomato', fill=False)
-#             ax2.add_patch(rect)
-#         plt.show()
-    
-# def check_partial_text():
-#     pass
-
-def check_text(areas,imgs,text_std=6,verbose=False):
+def check_text_zone(areas,imgs,text_std=6,verbose=False):
     '''
     '''
     all_text_areas = []
@@ -100,7 +34,7 @@ def check_text(areas,imgs,text_std=6,verbose=False):
 
         for a in areas[i]:
             print('\nAnalyzing area',a)
-            nblines = analyze_text(imgs[i],*a,text_std,verbose=verbose)
+            nblines = analyze_text_zone(imgs[i],*a,text_std,verbose=verbose)
             if nblines != -1:
                 text_areas.append((*a,nblines))
             else:
@@ -108,7 +42,7 @@ def check_text(areas,imgs,text_std=6,verbose=False):
             # new_img[y1:y2,x1:x2] = np.mean(img)
 
         all_text_areas.append(text_areas)
-        linked_texts = link(text_areas)
+        linked_texts = link_neighbors(text_areas)
 
         _,(ax2,ax1) = plt.subplots(1,2,figsize=(9,7))
         ax2.imshow(imgs[i])
@@ -150,8 +84,8 @@ def outer_module(img,ax=None):
     for i in range(len(l)-1):
         if l[i] != l[i+1]:
             res.append(i)
-
-    res = [[res[i],res[i+1]] for i in range(l[res[0]+1],len(res)-1,2)]
+    if len(res) > 0:
+        res = [[res[i],res[i+1]] for i in range(l[res[0]+1],len(res)-1,2)]
     if ax is not None:
         for t in res:
             ax.axhline(t[0],color='teal')
@@ -176,7 +110,7 @@ def inner_module(img,out=None,ax=None):
                 # ax.axhline(t,color=color[(len(mins)-1)%len(color)])
     return res
 
-def analyze_text(image,x1,y1,x2,y2,text_std,verbose=False):
+def analyze_text_zone(image,x1,y1,x2,y2,text_std,verbose=False):
     if image.ndim > 2:
         text_img = cv2.cvtColor(image[y1:y2,x1:x2], cv2.COLOR_RGB2GRAY)
     else: 
@@ -258,7 +192,7 @@ def up_down_neighbor(a,b):
                 return 1
     return 0
 
-def link(areas):
+def link_neighbors(areas):
     print('\n')
     linked = dict()
     for i in range(len(areas)):
@@ -400,7 +334,7 @@ def get_white_pixels_coords(binary, eps_x, eps_y):
                                 if binary[y,x]
                         ]
     graph_white_pixels = {px: get_neighbors(binary, px, eps_x, eps_y) for px in list_white_pixels}
-    state_white_pixels = {px: -1 for px in list_white_pixels}
+    state_white_pixels = {px: -1 for px in list_white_pixels} # px is in cluster i if state[px] = i, cluster 0 indicates noise
     return state_white_pixels, graph_white_pixels
         
 # def get_connected_components_knn(binary):
@@ -438,19 +372,24 @@ def get_white_pixels_coords(binary, eps_x, eps_y):
 #         print('- cluster',values[i],'has',counts[i],'elements.')
 #     return connected
 
-def get_connected_components_dbscan(binary, eps_x=20, eps_y=2, minpts=30, subsample=True, colored=None, verbose=True):
+def get_connected_components_dbscan(binary, eps_y=2, eps_x=None, minpts=30, subsample=True, colored=None, verbose=True):
     '''
     '''
     binary_ = binary
     scale = 1
     if subsample:
-        while len(binary_) > 2000:
+        while len(binary_) > 1600:
             binary_ = binary_[::2,::2]
             scale*=2
     print('scale=',scale)
+    if eps_x is None:
+        # print(binary_.shape[1])
+        eps_x = int(binary_.shape[1]/75)
+    print('eps_x=',eps_x, 'eps_y=',eps_y)
     state, graph = get_white_pixels_coords(binary_, eps_x, eps_y)
     print('contains',len(state),'white pixels')
-    res = []
+    clusters = []
+    masks = []
     cpt = 0
     for px in graph:
         if state[px] != -1:
@@ -477,38 +416,112 @@ def get_connected_components_dbscan(binary, eps_x=20, eps_y=2, minpts=30, subsam
                 neighbors |= neighbors_of_neighbor
     rf = (50,50)
     if colored is not None:
-        fig, (ax,ax_) = plt.subplots(1,2,figsize=(20,15))
-        ax_.imshow(colored)
-        ax_.scatter(rf[0],rf[1],marker='x',color='olive')
+        fig, (ax,ax1,ax2) = plt.subplots(1,3,figsize=(27,15))
+        ax1.imshow(colored)
+        ax1.autoscale(False)
+        ax1.scatter(rf[0],rf[1],marker='x',color='olive')
         rect = patches.Rectangle((rf[0]-eps_x*scale,rf[1]-eps_y*scale),eps_x*scale*2,eps_y*scale*2,linewidth=1,edgecolor='tomato',fill=False)
-        ax_.add_patch(rect)
+        ax1.add_patch(rect)
     else:
-        fig, ax = plt.subplots(1,1,figsize=(10,15))
+        fig, (ax,ax2) = plt.subplots(1,2,figsize=(15,15))
     ax.imshow(binary_,cmap='gray')
+    ax.autoscale(False)
     ax.scatter(rf[0],rf[1],marker='x',color='olive')
     rect = patches.Rectangle((rf[0]-eps_x,rf[1]-eps_y),eps_x*2,eps_y*2,linewidth=1,edgecolor='tomato',fill=False)
     ax.add_patch(rect)
-    ax.scatter([g[0] for g in graph],[g[1] for g in graph],c=np.array(list(state.values())),cmap='Paired',s=1)
+    ax.scatter([g[0] for g in graph],[g[1] for g in graph],c=np.array(list(state.values())),cmap='Paired',s=0.1)
     print(cpt,'clusters found with DBSCAN algorithm')
+
     values, counts = np.unique(list(state.values()), return_counts=True)
+
+    general_mask = np.copy(binary).astype(int)
+    for y in range(general_mask.shape[0]):
+        for x in range(general_mask.shape[1]):
+            if general_mask[y,x]:
+                general_mask[y,x] = state.get((x//scale,y//scale),0)
+    # for x,y in state:
+        # general_mask[y,x] = state[(x,y)]
+
     for i in range(len(values)):
         if values[i] == 0:
             continue
-        print('- cluster',values[i],'covers',counts[i],'pixel.')
+        # print('- cluster',values[i],'covers',counts[i],'pixel.')
         indices = np.array([px for px in graph if state[px] == values[i]])
         x = np.min(indices[:,0])*scale
         x_ = np.max(indices[:,0])*scale
         y = np.min(indices[:,1])*scale
         y_ = np.max(indices[:,1])*scale
-        res.append((x,y,x_,y_))
+        if y_-y == 0 or x_-x == 0:
+            print(x,y,x_,y_)
+            continue
+        clusters.append((x,y,x_,y_))
+        mask = np.copy(general_mask[y:y_,x:x_])
+        masks.append(np.where(mask == values[i],1,0))
         rect = patches.Rectangle((x/scale, y/scale), (x_-x)/scale, (y_-y)/scale, linewidth=1, edgecolor='tomato', fill=False)
         ax.add_patch(rect)
         if colored is not None:
             rect = patches.Rectangle((x, y), x_-x, y_-y, linewidth=1, edgecolor='tomato', fill=False)
-            ax_.add_patch(rect)
-    plt.show()
-    return res
+            ax1.add_patch(rect)
+    # plt.show()
 
+    general_mask = general_mask.astype(bool).astype(int)
+    # plt.figure(figsize=(5,8))
+    ax2.imshow(general_mask,cmap='gray')
+    plt.show()
+    return clusters, masks, general_mask
+
+def is_text_line(image, eps=35, minmod=6):
+    # print(eps, minmod)
+    if image.shape[0] > image.shape[1]:
+        return False
+    if image.ndim > 2:
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    texts = outer_module(image)
+    hmean = np.mean(image, axis=1)
+    vmean = np.mean(image, axis=0)
+    gmean = np.mean(image)
+    # if len(texts) > 0:
+        # print(np.max(texts, axis=0)[1] - np.min(texts, axis=0)[0])
+    # print(texts, np.abs(horizontal_mean[0] - horizontal_mean[-1]))
+    # print(len(texts) > 0 and np.abs(horizontal_mean[0] - horizontal_mean[-1]) <= eps)
+    # print(np.abs(horizontal_mean[0] - horizontal_mean[-1]) <= eps)
+    # print(len(texts))
+    cond = len(texts) > 0 and np.abs(hmean[0] - hmean[-1]) <= eps \
+        and np.max(texts, axis=0)[1] - np.min(texts, axis=0)[0] > minmod\
+        and np.sum([1 if (gmean-vmean[i])*(gmean-vmean[i+1]) < 0 else 0 for i in range(len(vmean)-1)])/len(vmean) > 0.03
+    # if cond:
+    #     print('true?')
+    # if len(texts) > 0:
+    #     print(texts,  np.max(texts, axis=0)[1] - np.min(texts, axis=0)[0])
+    # else:
+    #     print(texts)
+    # print(np.abs(hmean[0] - hmean[-1]))
+    # print(np.sum([1 if (gmean-vmean[i])*(gmean-vmean[i+1]) < 0 else 0 for i in range(len(vmean)-1)])/len(vmean))
+
+    return cond
+
+def filter_text(image, clusters, masks=None):
+    text = []
+    non_text = []
+    fig, (ax1) = plt.subplots(1, figsize=(7,10))
+    ax1.imshow(image)
+
+    for i in range(len(clusters)):
+        x,y,x_,y_ = clusters[i]
+        img = image[y:y_,x:x_] if masks is None else 1-masks[i]
+        cond = is_text_line(img, eps=0.15, minmod=image.shape[0]*2e-3)
+        # print(x,y,x_,y_,cond)
+        if cond:
+            rect = patches.Rectangle((x, y), x_-x, y_-y, linewidth=1, edgecolor='seagreen', fill=False)
+            ax1.add_patch(rect)
+            text.append(i)
+        else:
+            rect = patches.Rectangle((x, y), x_-x, y_-y, linewidth=1, edgecolor='tomato', fill=False)
+            ax1.add_patch(rect)
+            non_text.append(i)
+
+    plt.show()
+    return text, non_text
 
 def highlight_fond_color(image,color='tomato',i=None):
     '''

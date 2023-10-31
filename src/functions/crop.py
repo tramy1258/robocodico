@@ -23,23 +23,25 @@ def prepare_image(img,dir,cvd):
     else:
         image = img.copy()
 
-    # undo normalization
+    # Undo normalization
     if (image<=1).all():
         image = image*255
-        image = image.astype(int)
+        # image = image.astype(int)
         image = np.uint8(image)
     
-    # convolve
+    # Convolve if necessary
     if cvd:
         image = sharpen(image)
 
     # transpose
-    tr = False
-    if (dir == 'm' and len(image) > len(image[0])) or dir in {'u','d'}: # only consider splitting along longer edge and trimming left or right
+    # tr = False
+    # if (dir == 'm' and len(image) > len(image[0])) or dir in {'u','d'}: # only consider splitting along longer edge and trimming left or right
+    if dir in {'u','d'}:
         image = cv2.transpose(image)
-        tr = True
+        # tr = True
 
-    return image,tr
+    # return image,tr
+    return image
 
 def hough_vertical_lines(edges,angle=np.pi/9,nbmax=150):
     '''
@@ -194,7 +196,8 @@ def get_good_lines(band,binary,x1,ratio,continuous_ratio,a,b,x0,y0,theta,d=None,
 def get_split(img,dir,ratio=0.6,continuous_ratio=0.25,c=6,angle=np.pi/9,verbose=True,cvd=False,bnw=True,nbmax=100):
     '''
     '''
-    image, tr = prepare_image(img,dir,cvd)
+    # image, tr = prepare_image(img,dir,cvd)
+    image = prepare_image(img,dir,cvd)
     x1, y1, x2, y2 = get_band_limits(image,dir,c)
 
     band = image[y1:y2,x1:x2]
@@ -267,7 +270,7 @@ def get_split(img,dir,ratio=0.6,continuous_ratio=0.25,c=6,angle=np.pi/9,verbose=
 
     return all_x[i], all_y[i], all_angle[i]
 
-def all_orientation(img,ratio=0.6,continuous_ratio=0.25,c=4,angle=np.pi/9,verbose=True,cvd=False):
+def all_orientation(img,ratio=0.6,continuous_ratio=0.45,c=4,angle=np.pi/9,verbose=True,cvd=False):
     '''
     '''
     x = np.array([])
@@ -315,12 +318,14 @@ def main_orientation(angle,atol=2e-2):
         
     return 0 # if no main orientation can be found, do not rectify at all
 
-def rectify(img,x,y,ang,verbose=True):
+def rectify(img,x=None,y=None,ang=None,rad=None,verbose=False):
     '''
+    Must provide rad or ang
     '''
     height, width = img.shape[:2]
     center = (width/2,height/2)
-    rad = main_orientation(ang)
+    if ang is not None:
+        rad = main_orientation(ang)
     rad = rad - np.pi if rad > np.pi/2 else rad
     rotate_matrix = cv2.getRotationMatrix2D(center=center, angle=-rad*180/np.pi, scale=1)
 
@@ -335,7 +340,10 @@ def rectify(img,x,y,ang,verbose=True):
     # rotate_matrix[0, 2] += bound_w/2 - center[0]
     # rotate_matrix[1, 2] += bound_h/2 - center[1]
     rotated_image = cv2.warpAffine(src=img, M=rotate_matrix, dsize=(bound_w,bound_h))
-
+    
+    if x is None or y is None:
+        return rotated_image
+    
     x_1 = (x*rotate_matrix[0,0] + y*rotate_matrix[0,1] + rotate_matrix[0,2]).astype(int)
     y_1 = (x*rotate_matrix[1,0] + y*rotate_matrix[1,1] + rotate_matrix[1,2]).astype(int)
       
@@ -345,7 +353,7 @@ def rectify(img,x,y,ang,verbose=True):
     x_ = np.concatenate((x_1[:2],x_2[2:]))
     y_ = np.concatenate((y_1[:2],y_2[2:]))
         
-    if verbose:
+    if verbose and ang is not None:
         fig, (a,b) = plt.subplots(1,2,figsize=(15,10))
 
         a.imshow(img)
@@ -374,27 +382,21 @@ def rectify(img,x,y,ang,verbose=True):
 def split(img):
     pass
 
-def reframe(img,rep=2,save_path=None, verbose=False):
+def reframe(img, rep=2, trim_required=True, save_path=None, verbose=False):
     '''
     '''
-    x,y,a = get_split(img,'m',c=9,continuous_ratio=0.45,ratio=0.3, verbose=verbose)
+    x,y,a = get_split(img,'m',c=9,continuous_ratio=0.45,ratio=0.8, verbose=verbose)
     if x is not None:
         ends = (int((len(img)-y)*np.tan(a) + x),int(-y*np.tan(a) + x))
         imgs = [img[:,:max(ends)], img[:,min(ends):]]
     else:
         imgs = [img]
-    
     if verbose:
         for i in range(len(imgs)):
             plt.imshow(imgs[i])
             plt.yticks([])
             plt.xticks([])
             plt.show()
-
-    for i in range(len(imgs)):
-        for r in range(rep):
-            x,y,a = all_orientation(imgs[i],continuous_ratio=0.4,verbose=verbose)
-            imgs[i] = rectify(imgs[i],x,y,a,verbose)
 
     if save_path is not None:
         j = len(save_path)-save_path[::-1].index('.')-1
@@ -403,8 +405,29 @@ def reframe(img,rep=2,save_path=None, verbose=False):
             os.makedirs(save_path[:k]+'reframed/')
         for i in range(len(imgs)):
             print(imgs[i].shape)
-            ind_sp = ''.join((save_path[:k],'reframed/',save_path[k:j],'_'+str(i),'.png'))
+            ind_sp = ''.join((save_path[:k],'reframed/',save_path[k:j],'_'+str(i)+'0','.png'))
             plt.imsave(ind_sp,imgs[i])
+        
+    if trim_required:
+        for i in range(len(imgs)):
+            for r in range(rep):
+                x,y,a = all_orientation(imgs[i],continuous_ratio=0.45,verbose=verbose)
+                imgs[i] = rectify(imgs[i],x,y,a,verbose)
+        if save_path is not None:
+            j = len(save_path)-save_path[::-1].index('.')-1
+            k = len(save_path)-save_path[::-1].index('/')
+            if not os.path.exists(save_path[:k]+'reframed/'):
+                os.makedirs(save_path[:k]+'reframed/')
+            for i in range(len(imgs)):
+                print(imgs[i].shape)
+                ind_sp = ''.join((save_path[:k],'reframed/',save_path[k:j],'_'+str(i)+'1','.png'))
+                plt.imsave(ind_sp,imgs[i])
+
+    _, axes = plt.subplots(1, len(imgs)+1, figsize=(10 + 10*len(imgs),10))
+    axes[0].imshow(img)
+    for i in range(1,len(axes)):
+        axes[i].imshow(imgs[i-1])
+    plt.show()
 
     return imgs
 

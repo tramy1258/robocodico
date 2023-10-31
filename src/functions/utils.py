@@ -83,10 +83,10 @@ def show_splits(image,splits,ax=None,color='red',gray=False):
                 ax.axhline(t,linewidth=1,color=color) 
         #plt.show()  
 
-def show_areas(image,areas,ax=None,color='red',gray=False):
+def show_areas(image,areas,ax=None,color='red'):
     if ax is None:
         plt.figure(figsize = (20,10))
-        if gray:
+        if image.ndim == 2:
             plt.imshow(image,cmap='gray')    
         else:
             plt.imshow(image)
@@ -96,7 +96,7 @@ def show_areas(image,areas,ax=None,color='red',gray=False):
             plt.gca().add_patch(rect)
         plt.show()
     else:
-        if gray:
+        if image.ndim == 2:
             ax.imshow(image,cmap='gray')
         else:
             ax.imshow(image)
